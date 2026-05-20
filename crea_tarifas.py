@@ -6,7 +6,6 @@ from datetime import date
 import streamlit as st
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment
-from openpyxl.utils import get_column_letter
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIG
@@ -19,7 +18,7 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
-# HELPERS (lógica de cálculo)
+# HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
 
 def parse_euro(value):
@@ -36,14 +35,11 @@ def parse_euro(value):
     except ValueError:
         return None
 
-
 def pvp_min(cost_log):
     return math.ceil(cost_log) - 0.1
 
-
 def pvp_pub(pvp_min_val, pvpr):
     return pvp_min_val if pvp_min_val > pvpr else pvpr
-
 
 def rentabilidad(neto, porte, pvp_sin_iva, comision_eur):
     denom = pvp_sin_iva - comision_eur
@@ -51,18 +47,15 @@ def rentabilidad(neto, porte, pvp_sin_iva, comision_eur):
         return None
     return 1 - (neto + porte) / denom
 
-
 def num_cell(ws, row, col, value, fmt='#,##0.00'):
     cell = ws.cell(row=row, column=col, value=value)
     cell.number_format = fmt
     return cell
 
-
 def pct_cell(ws, row, col, value):
     cell = ws.cell(row=row, column=col, value=value)
     cell.number_format = '0.00%'
     return cell
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CARGA DE DATOS
@@ -99,7 +92,6 @@ def load_product_info(file_bytes):
     wb.close()
     return products
 
-
 @st.cache_data(show_spinner=False)
 def load_tarifa_nacional(file_bytes):
     wb = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
@@ -133,17 +125,16 @@ def load_tarifa_nacional(file_bytes):
     wb.close()
     return tarifa
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # GENERACIÓN NACIONAL
 # ─────────────────────────────────────────────────────────────────────────────
 
 MARKETPLACES = [
-    ('T_AMZ',  '(%) COM_AMZ', 'com_amz',  0.1815,   'FF6600'),
-    ('T_MIR',  '(%) COM_MIR', 'com_mir',  0.15,     '0070C0'),
-    ('T_C4',   '(%) COM_C4',  'com_c4',   0.10,     'C00000'),
-    ('T_MM',   '(%) COM_MM',  'com_mm',   0.14956,  '00B050'),
-    ('T_PRIV', '(%) COM_PRIV','com_priv', 0.1452,   '7030A0'),
+    ('T_AMZ',  '(%) COM_AMZ', 'com_amz',  0.1815,  'FF6600'),
+    ('T_MIR',  '(%) COM_MIR', 'com_mir',  0.15,    '0070C0'),
+    ('T_C4',   '(%) COM_C4',  'com_c4',   0.10,    'C00000'),
+    ('T_MM',   '(%) COM_MM',  'com_mm',   0.14956, '00B050'),
+    ('T_PRIV', '(%) COM_PRIV','com_priv', 0.1452,  '7030A0'),
 ]
 
 NAC_HEADERS = [
@@ -153,16 +144,14 @@ NAC_HEADERS = [
     'PVP MIN.', 'PVP PUB.', 'PVP SIN IVA', 'COMISION', 'RENTABILIDAD', 'DESPOSICIONADO'
 ]
 
-
 def build_nacional(tarifa, products, margen=0.10):
     wb = Workbook()
     wb.remove(wb.active)
-
+    total = 0
     for sheet_id, com_sheet_id, com_key, com_default, bg in MARKETPLACES:
         ws = wb.create_sheet(sheet_id)
         fill = PatternFill('solid', start_color=bg)
         font_h = Font(bold=True, color='FFFFFF', name='Arial', size=10)
-
         for j, h in enumerate(NAC_HEADERS, 1):
             cell = ws.cell(row=1, column=j, value=h)
             cell.fill = fill
@@ -178,12 +167,12 @@ def build_nacional(tarifa, products, margen=0.10):
         for ean, prod in products.items():
             if ean not in tarifa:
                 continue
-            tar = tarifa[ean]
-            ref      = prod['ref']
-            pvpr     = tar['pvpr']
-            neto     = tar['neto']
-            porte    = tar['porte']
-            com_pct  = prod.get(com_key) or com_default
+            tar     = tarifa[ean]
+            ref     = prod['ref']
+            pvpr    = tar['pvpr']
+            neto    = tar['neto']
+            porte   = tar['porte']
+            com_pct = prod.get(com_key) or com_default
 
             margen_eur  = neto / (1 - margen)
             cost_log    = margen_eur + porte
@@ -226,12 +215,12 @@ def build_nacional(tarifa, products, margen=0.10):
         ws.column_dimensions['C'].width = 40
         for l in ['D', 'E']:
             ws.column_dimensions[l].width = 22
+        total = row - 2
 
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
-    return buf, row - 2
-
+    return buf, total
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GENERACIÓN INTER
@@ -254,7 +243,6 @@ INTER_HDR_BASE = ['NOMBRE COMPLETO', 'Tipo Tarifa', 'REFERENCIA', 'EAN',
                   'PVP', 'NETO ES', 'PORTE ES', 'MARGEN', 'COST_log',
                   'COMISION', 'IVA', 'PVP MIN.', 'PVP PUB.']
 
-
 def calc_inter_row(pvp, neto, porte, iva_factor, margen, com_pct=0.1815):
     if pvp is None or neto is None or porte is None:
         return None
@@ -266,7 +254,6 @@ def calc_inter_row(pvp, neto, porte, iva_factor, margen, com_pct=0.1815):
     ppub       = pvp_pub(pmin, pvp)
     return {'margen': margen_eur, 'cost': cost_log,
             'comis': comision, 'iva': iva_val, 'pmin': pmin, 'ppub': ppub}
-
 
 def load_inter_sheet(wb, sheet_name, col_pvp, col_porte_es, col_neto_es,
                      col_porte_loc=None, col_neto_loc=None, data_start=3):
@@ -293,7 +280,6 @@ def load_inter_sheet(wb, sheet_name, col_pvp, col_porte_es, col_neto_es,
         })
     return records
 
-
 def load_zona(wb, sheet_name, col_pvp=5, col_porte=6, col_neto=7):
     ws = wb[sheet_name]
     recs = []
@@ -314,7 +300,6 @@ def load_zona(wb, sheet_name, col_pvp=5, col_porte=6, col_neto=7):
             'porte_loc': None, 'neto_loc': None,
         })
     return recs
-
 
 def write_inter_ws(ws, records, ean_map, sheet_key, iva_factor, margen,
                    local_prefix=None, conv_factor=None):
@@ -379,7 +364,6 @@ def write_inter_ws(ws, records, ean_map, sheet_key, iva_factor, margen,
     ws.column_dimensions['C'].width = 20
     return row - 2
 
-
 def build_inter(inter_bytes, products):
     wb_in  = load_workbook(io.BytesIO(inter_bytes), read_only=True, data_only=True)
     wb_out = Workbook()
@@ -396,17 +380,17 @@ def build_inter(inter_bytes, products):
 
     counts = {}
     sheets = [
-        ('ES-FR', fr_recs, 1.20, None,  None),
-        ('FR-FR', fr_recs, 1.20, 'FR',  None),
-        ('ES-IT', it_recs, 1.22, None,  None),
-        ('IT-IT', it_recs, 1.22, 'IT',  None),
-        ('ES-DE', de_recs, 1.19, None,  None),
-        ('DE-DE', de_recs, 1.19, 'DE',  None),
-        ('PT',    pt_recs, 1.23, None,  None),
-        ('NL',    z3_recs, 1.21, None,  None),
-        ('BE',    z3_recs, 1.21, None,  None),
-        ('PL',    z4_recs, 1.23, None,  CONV_PL),
-        ('SE',    z5_recs, 1.25, None,  CONV_SE),
+        ('ES-FR', fr_recs, 1.20, None, None),
+        ('FR-FR', fr_recs, 1.20, 'FR', None),
+        ('ES-IT', it_recs, 1.22, None, None),
+        ('IT-IT', it_recs, 1.22, 'IT', None),
+        ('ES-DE', de_recs, 1.19, None, None),
+        ('DE-DE', de_recs, 1.19, 'DE', None),
+        ('PT',    pt_recs, 1.23, None, None),
+        ('NL',    z3_recs, 1.21, None, None),
+        ('BE',    z3_recs, 1.21, None, None),
+        ('PL',    z4_recs, 1.23, None, CONV_PL),
+        ('SE',    z5_recs, 1.25, None, CONV_SE),
     ]
     for key, recs, iva, prefix, conv in sheets:
         ws = wb_out.create_sheet(key)
@@ -418,52 +402,66 @@ def build_inter(inter_bytes, products):
     buf.seek(0)
     return buf, counts
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # UI
 # ─────────────────────────────────────────────────────────────────────────────
 
 st.title("📊 Generador de Tarifas Turaco")
-st.markdown("Sube los tres ficheros de entrada y descarga las tarifas completas generadas automáticamente.")
+st.markdown("Sube los cuatro ficheros de entrada y descarga las tarifas completas generadas automáticamente.")
 
 st.divider()
 
 col1, col2 = st.columns(2)
+
 with col1:
-    f_calc    = st.file_uploader("🗂️ Calculadora (Product_info + comisiones)", type="xlsx",
-                                  help="CALCULADORA_TARIFA_NACIONAL.xlsx")
-    f_nacional = st.file_uploader("🇪🇸 Tarifa Nacional de Sistema", type="xlsx",
-                                   help="TARIFA_TURACO_-_(MES)_2026.xlsx")
+    st.markdown("### 🇪🇸 Tarifa Nacional")
+    f_calc_nac = st.file_uploader(
+        "Calculadora Nacional (Product_info + comisiones)", type="xlsx",
+        key="calc_nac", help="CALCULADORA_TARIFA_NACIONAL.xlsx")
+    f_nacional = st.file_uploader(
+        "Tarifa Nacional de Sistema", type="xlsx",
+        key="tarifa_nac", help="TARIFA_TURACO_-_(MES)_2026.xlsx")
+
 with col2:
-    f_inter   = st.file_uploader("🌍 Tarifa Internacional de Sistema", type="xlsx",
-                                  help="TARIFA_TURACO_INTER_-_(MES)2026.xlsx")
-    margen    = st.number_input("Margen (%)", min_value=1, max_value=30, value=10,
-                                 help="Margen de seguridad aplicado sobre el NETO. Por defecto 10%.") / 100
+    st.markdown("### 🌍 Tarifa Internacional")
+    f_calc_int = st.file_uploader(
+        "Calculadora Internacional (Product_info + comisiones)", type="xlsx",
+        key="calc_int", help="CALCULADORA_TARIFA_INTERNACIONAL.xlsx")
+    f_inter = st.file_uploader(
+        "Tarifa Internacional de Sistema", type="xlsx",
+        key="tarifa_int", help="TARIFA_TURACO_INTER_-_(MES)2026.xlsx")
+
+st.divider()
+margen = st.number_input(
+    "Margen Nacional (%)", min_value=1, max_value=30, value=10,
+    help="Margen de seguridad aplicado sobre el NETO en la tarifa nacional. Por defecto 10%.") / 100
 
 st.divider()
 
-if st.button("⚡ Generar tarifas", type="primary",
-             disabled=not (f_calc and f_nacional and f_inter)):
+all_files = f_calc_nac and f_nacional and f_calc_int and f_inter
+
+if st.button("⚡ Generar tarifas", type="primary", disabled=not all_files):
 
     with st.status("Procesando…", expanded=True) as status:
 
-        st.write("📥 Cargando Product_info de la calculadora…")
-        calc_bytes = f_calc.read()
-        products   = load_product_info(calc_bytes)
-        st.write(f"   ✅ {len(products):,} productos cargados")
+        st.write("📥 Cargando calculadora nacional…")
+        products_nac = load_product_info(f_calc_nac.read())
+        st.write(f"   ✅ {len(products_nac):,} productos")
 
-        st.write("📥 Cargando tarifa nacional…")
-        nac_bytes = f_nacional.read()
-        tarifa    = load_tarifa_nacional(nac_bytes)
-        st.write(f"   ✅ {len(tarifa):,} líneas cargadas")
+        st.write("📥 Cargando calculadora internacional…")
+        products_int = load_product_info(f_calc_int.read())
+        st.write(f"   ✅ {len(products_int):,} productos")
+
+        st.write("📥 Cargando tarifa nacional de Sistema…")
+        tarifa = load_tarifa_nacional(f_nacional.read())
+        st.write(f"   ✅ {len(tarifa):,} líneas")
 
         st.write("🔧 Generando TARIFA NACIONAL COMPLETA…")
-        buf_nac, n_nac = build_nacional(tarifa, products, margen=margen)
+        buf_nac, n_nac = build_nacional(tarifa, products_nac, margen=margen)
         st.write(f"   ✅ {n_nac:,} productos × 5 marketplaces")
 
         st.write("🔧 Generando TARIFA INTER COMPLETA…")
-        inter_bytes   = f_inter.read()
-        buf_int, counts = build_inter(inter_bytes, products)
+        buf_int, counts = build_inter(f_inter.read(), products_int)
         for k, v in counts.items():
             st.write(f"   ✅ {k}: {v:,} filas")
 
@@ -490,7 +488,6 @@ if st.button("⚡ Generar tarifas", type="primary",
             use_container_width=True,
         )
     with c3:
-        # ZIP con los dos juntos
         zip_buf = io.BytesIO()
         with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zf:
             buf_nac.seek(0)
@@ -506,5 +503,5 @@ if st.button("⚡ Generar tarifas", type="primary",
             use_container_width=True,
         )
 
-elif not (f_calc and f_nacional and f_inter):
-    st.info("👆 Sube los tres ficheros para habilitar la generación.", icon="ℹ️")
+elif not all_files:
+    st.info("👆 Sube los cuatro ficheros para habilitar la generación.", icon="ℹ️")
